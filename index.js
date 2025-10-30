@@ -9,7 +9,7 @@ const app = express();
 // 🔑 KEAMANAN - GANTI KUNCI INI DENGAN NILAI YANG SULIT DITEBAK!
 // Kunci ini harus sama persis dengan yang Anda gunakan di skrip Roblox.
 // PENTING: Gunakan Environment Variable di Vercel/Render untuk nilai ini.
-const ROBLOX_API_KEY = process.env.ROBLOX_API_KEY || "PANJANG_DAN_ACAK_7b9d5c4e8f1a0b3c6d2e9f4a1b0c3d5e7f8a9b2c1d4e5f6a7b8c9d0e1f2a3b4c";
+const ROBLOX_API_KEY = process.env.ROBLOX_API_KEY || "a87asg971291209asf98g9103849asg0hjh01it4";
 
 // --- Database Sederhana (Antrian Donasi) ---
 // Catatan: Dalam produksi skala besar, ini harus diganti dengan Database (misal: Firestore)
