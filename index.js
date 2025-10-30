@@ -1,11 +1,17 @@
 // server.js (Menggunakan Node.js & Express)
+// Ini adalah server bridge yang menerima webhook dari Saweria
+// dan menyediakan endpoint polling untuk Roblox HttpService.
 
 const express = require('express');
 const bodyParser = require('body-parser');
 const app = express();
-const port = 3000; 
+
+// 🔑 KEAMANAN - GANTI KUNCI INI DENGAN NILAI YANG SULIT DITEBAK!
+// Kunci ini harus sama persis dengan yang Anda gunakan di skrip Roblox.
+const ROBLOX_API_KEY = process.env.ROBLOX_API_KEY || "a87asg971291209asf98g9103849asg0hjh01it4";
 
 // --- Database Sederhana (Antrian Donasi) ---
+// Catatan: Dalam produksi skala besar, ini harus diganti dengan Database (misal: Firestore)
 const donationsQueue = [];
 
 // --- Konfigurasi Server ---
@@ -22,13 +28,25 @@ app.use((req, res, next) => {
 });
 
 // ------------------------------------------------------------------
+// 0. ENDPOINT UTAMA (HEALTH CHECK / STATUS SERVER)
+// Digunakan untuk mengecek di browser (misal: Vercel)
+// ------------------------------------------------------------------
+app.get('/', (req, res) => {
+    res.status(200).json({ 
+        status: 'OK', 
+        message: 'Saweria Roblox Bridge Server berjalan. Gunakan /roblox/check?key=... untuk polling.' 
+    });
+});
+
+
+// ------------------------------------------------------------------
 // 1. ENDPOINT WEBHOOK SAWERIA (POST)
 // URL ini yang harus Anda daftarkan di Dashboard Saweria Anda.
 // ------------------------------------------------------------------
 app.post('/saweria', (req, res) => {
     const donation = req.body;
     
-    // Periksa apakah data penting ada (asumsi format Saweria)
+    // Asumsi format data dasar dari Saweria: donator_name dan amount
     if (donation && donation.donator_name && donation.amount) {
         
         const newDonation = {
@@ -42,19 +60,31 @@ app.post('/saweria', (req, res) => {
         donationsQueue.push(newDonation);
         console.log(`[SAWERIA] Donasi masuk: ${newDonation.name} - Rp${newDonation.nominal}`);
         
-        // Respons ke Saweria
-        res.status(200).json({ success: true, message: "Donasi diterima." });
+        // Respons 200 ke Saweria menunjukkan data diterima
+        res.status(200).json({ success: true, message: "Donasi diterima dan dimasukkan ke antrian." });
     } else {
-        console.error('[SAWERIA] Webhook data tidak valid:', donation);
-        res.status(400).json({ success: false, message: "Data tidak lengkap." });
+        console.error('[SAWERIA] Webhook data tidak valid/tidak lengkap:', donation);
+        // Respons 400 jika data tidak valid
+        res.status(400).json({ success: false, message: "Data webhook tidak lengkap atau format tidak dikenali." });
     }
 });
 
+
 // ------------------------------------------------------------------
-// 2. ENDPOINT UNTUK ROBLOX (GET)
-// URL ini yang akan diakses berulang kali oleh HttpService Roblox.
+// 2. ENDPOINT UNTUK ROBLOX (GET) - DILINDUNGI API KEY
+// URL ini diakses berulang kali oleh HttpService Roblox.
 // ------------------------------------------------------------------
 app.get('/roblox/check', (req, res) => {
+    
+    // 🔒 KEAMANAN: Verifikasi Kunci API (Mencegah Spoofing/Akses Liar)
+    const providedKey = req.query.key;
+
+    if (providedKey !== ROBLOX_API_KEY) {
+        console.warn('[ROBLOX] Percobaan akses tidak sah dengan kunci: ' + providedKey);
+        // Tolak akses jika kunci tidak cocok
+        return res.status(403).json({ status: "Unauthorized", message: "Invalid API Key" }); 
+    }
+
     // Cek apakah ada donasi di antrian
     if (donationsQueue.length > 0) {
         // Ambil donasi pertama (FIFO)
@@ -74,8 +104,13 @@ app.get('/roblox/check', (req, res) => {
 });
 
 
+// ------------------------------------------------------------------
 // Jalankan Server
+// ------------------------------------------------------------------
+// Wajib: Gunakan PORT dari Environment Variable (disediakan oleh Render/Vercel)
+const port = process.env.PORT || 3000; 
+
 app.listen(port, () => {
-    console.log(`Server Bridge berjalan di http://localhost:${port}`);
-    console.log('--- PERHATIAN: SERVER HARUS DIHOSTING PUBLIK (misal: Render, Vercel, atau Ngrok) ---');
+    console.log(`Server Bridge berjalan di port ${port}`);
+    console.log(`API Key yang digunakan: ${ROBLOX_API_KEY}`);
 });
